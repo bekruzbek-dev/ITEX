@@ -49,3 +49,7 @@ Saytdan test ariza yuboring → admin panelda darrov chiqadi (yuqorida xabar), T
 - Admin faqat `admins` jadvalidagi foydalanuvchi; ma'lumotlar Row Level Security bilan himoyalangan (anon faqat ariza yubora oladi, o'qiy olmaydi).
 - Bot tokeni brauzerga chiqmaydi, funksiya maxfiy `x-webhook-secret` bilan himoyalangan.
 - Formada spam tuzog'i (honeypot) va bazada qiymat tekshiruvlari bor.
+
+
+.
+

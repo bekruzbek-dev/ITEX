@@ -22,6 +22,7 @@ export default async (req) => {
   await sleep(Math.random() * 1500);
 
   // Telegram "429 Too Many Requests" desa, aytilgan vaqtni kutib qayta uriniladi
+   let detail = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
@@ -29,9 +30,9 @@ export default async (req) => {
       body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
     });
     if (res.ok) return new Response('ok');
-    if (res.status !== 429) break;
     const j = await res.json().catch(() => ({}));
+    detail = j.description || String(res.status);
+    if (res.status !== 429) break;
     await sleep(Math.min((j.parameters?.retry_after ?? 1) + 0.5, 3) * 1000);
   }
-  return new Response('telegram error', { status: 502 });
-};
+  return new Response('telegram error: ' + detail, { status: 502 });

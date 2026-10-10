@@ -9,30 +9,122 @@ export default async (req) => {
   if (req.headers.get('x-webhook-secret') !== process.env.WEBHOOK_SECRET)
     return new Response('Unauthorized', { status: 401 });
 
-  const body = await req.json().catch(() => null);
-  if (!body || body.type !== 'INSERT' || !body.record) return new Response('ignored');
-  const r = body.record;
-
-  const text =
-    `🚀 <b>ITEX — yangi ariza</b>\n\n` +
-    `👤 ${esc(r.full_name)}\n🏫 ${esc(r.grade)}-sinf\n🎯 ${esc(r.direction)}\n` +
-    `📞 ${esc(r.phone)}\n✈️ ${esc(r.telegram)}\n👨‍👩‍👧 Ota-ona: ${esc(r.parent_phone)}`;
-
-  // Ko'p ariza bir vaqtda kelsa, xabarlar bir yo'la ketmasligi uchun kichik tasodifiy kechikish
-  await sleep(Math.random() * 1500);
-
-  // Telegram "429 Too Many Requests" desa, aytilgan vaqtni kutib qayta uriniladi
-   let detail = '';
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, parse_mode: 'HTML' }),
-    });
-    if (res.ok) return new Response('ok');
-    const j = await res.json().catch(() => ({}));
-    detail = j.description || String(res.status);
-    if (res.status !== 429) break;
-    await sleep(Math.min((j.parameters?.retry_after ?? 1) + 0.5, 3) * 1000);
+ 
+export default async (req) => {
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      {
+        status: 405,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
-  return new Response('telegram error: ' + detail, { status: 502 });
+
+  const secret = process.env.WEBHOOK_SECRET;
+  const suppliedSecret = req.headers.get("x-webhook-secret");
+
+  if (!secret || suppliedSecret !== secret) {
+    return new Response(
+      JSON.stringify({ error: "Unauthorized" }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!token || !chatId) {
+    return new Response(
+      JSON.stringify({ error: "Telegram sozlamalari topilmadi" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  try {
+    const body = await req.json();
+
+    if (body.type !== "INSERT" || !body.record) {
+      return new Response(
+        JSON.stringify({ error: "Noto'g'ri so'rov" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const record = body.record;
+
+    const escapeHtml = (value = "") =>
+      String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]);
+
+    const text =
+      `<b>Yangi ITEX arizasi</b>\n\n` +
+      `<b>Ism:</b> ${escapeHtml(record.full_name)}\n` +
+      `<b>Sinf:</b> ${escapeHtml(record.grade)}\n` +
+      `<b>Yo'nalish:</b> ${escapeHtml(record.direction)}\n` +
+      `<b>Telefon:</b> ${escapeHtml(record.phone)}\n` +
+      `<b>Telegram:</b> ${escapeHtml(record.telegram)}\n` +
+      `<b>Ota-ona telefoni:</b> ${escapeHtml(record.parent_phone)}`;
+
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text,
+          parse_mode: "HTML",
+        }),
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) {
+      console.error("Telegram API xatosi:", result);
+
+      return new Response(
+        JSON.stringify({
+          error: "Telegram xabar yubora olmadi",
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true, message: "Telegram xabari yuborildi" }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (error) {
+    console.error("Funksiya xatosi:", error);
+
+    return new Response(
+      JSON.stringify({ error: "So'rovni qayta ishlashda xato" }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+};

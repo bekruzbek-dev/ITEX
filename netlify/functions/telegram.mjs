@@ -1,15 +1,5 @@
 // Supabase Database Webhook (INSERT) -> Telegram xabari.
 // Bot tokeni faqat Netlify environment'da saqlanadi, brauzerga chiqmaydi.
-const esc = (s) =>
-  String(s ?? '—').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-export default async (req) => {
-  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-  if (req.headers.get('x-webhook-secret') !== process.env.WEBHOOK_SECRET)
-    return new Response('Unauthorized', { status: 401 });
-
- 
 export default async (req) => {
   if (req.method !== "POST") {
     return new Response(
